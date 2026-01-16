@@ -2,11 +2,6 @@
 ////
 //// More information about Manifold can be found on its
 //// [GitHub page](https://github.com/discord/manifold).
-////
-//// Unlike Gleam's erlang module, Tags in gleam_manifold
-//// are not bound to a specific process. They're merely a unique
-//// reference which provides runtime guarantees about type-safe
-//// message delivery.
 
 import gleam/erlang/process
 import gleam/erlang/reference
