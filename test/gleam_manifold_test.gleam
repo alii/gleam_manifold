@@ -130,5 +130,37 @@ pub fn sender_key_test() {
   assert manifold.receive(tag, 100) == Ok("After sender key")
 }
 
+pub fn receive_forever_test() {
+  let tag = manifold.new_tag()
+  let pid = process.self()
+
+  process.spawn(fn() { manifold.send(pid, tag, "Forever message") })
+  assert manifold.receive_forever(tag) == "Forever message"
+}
+
+pub fn no_packing_test() {
+  let tag = manifold.new_tag()
+  let pid = process.self()
+
+  process.spawn(fn() {
+    manifold.send_with_options(pid, tag, "Test with no packing", [
+      manifold.PackModeOption(manifold.NoPacking),
+    ])
+  })
+  assert manifold.receive(tag, 100) == Ok("Test with no packing")
+}
+
+pub fn direct_send_mode_test() {
+  let tag = manifold.new_tag()
+  let pid = process.self()
+
+  process.spawn(fn() {
+    manifold.send_with_options(pid, tag, "Test with direct mode", [
+      manifold.SendModeOption(manifold.Direct),
+    ])
+  })
+  assert manifold.receive(tag, 100) == Ok("Test with direct mode")
+}
+
 @external(erlang, "gleam_erlang_ffi", "identity")
 fn identity(x: a) -> b
