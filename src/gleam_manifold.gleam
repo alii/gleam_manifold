@@ -49,16 +49,12 @@ pub fn new_tag() -> Tag(message) {
   Tag(reference.new())
 }
 
-fn to_message(tag: Tag(message), message: message) -> Message(message) {
-  #(tag.ref, message)
-}
-
 pub fn send(
   pid: process.Pid,
   tag: Tag(message),
   message: message,
 ) -> Nil {
-  manifold_send(pid, to_message(tag, message))
+  manifold_send(pid, #(tag.ref, message))
   Nil
 }
 
@@ -69,7 +65,7 @@ pub fn send_with_options(
   options: List(ManifoldOption),
 ) -> Nil {
   let opts = options_to_keyword_list(options)
-  manifold_send_with_options(pid, to_message(tag, message), opts)
+  manifold_send_with_options(pid, #(tag.ref, message), opts)
   Nil
 }
 
@@ -78,7 +74,7 @@ pub fn send_multi(
   tag: Tag(message),
   message: message,
 ) -> Nil {
-  manifold_send_multi(pids, to_message(tag, message))
+  manifold_send_multi(pids, #(tag.ref, message))
   Nil
 }
 
@@ -89,7 +85,7 @@ pub fn send_multi_with_options(
   options: List(ManifoldOption),
 ) -> Nil {
   let opts = options_to_keyword_list(options)
-  manifold_send_multi_with_options(pids, to_message(tag, message), opts)
+  manifold_send_multi_with_options(pids, #(tag.ref, message), opts)
   Nil
 }
 
