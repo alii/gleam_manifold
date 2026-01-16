@@ -33,7 +33,7 @@ pub fn example() {
   manifold.send(pid, tag, "Hello world")
 
   // Receive the message
-  let assert Ok(message) = manifold.receive(subject, 1000)
+  let assert Ok(message) = manifold.receive(tag, 1000)
 }
 ```
 
@@ -69,7 +69,7 @@ pub fn send_with_packing() {
   // Binary packing - efficient for large messages sent to many processes
   manifold.send_with_options(
     pid,
-    subject,
+    tag,
     large_data,
     [manifold.PackModeOption(manifold.Binary)]
   )
@@ -77,7 +77,7 @@ pub fn send_with_packing() {
   // ETF (Erlang Term Format) - default behavior
   manifold.send_with_options(
     pid,
-    subject,
+    tag,
     data,
     [manifold.PackModeOption(manifold.Etf)]
   )
@@ -85,7 +85,7 @@ pub fn send_with_packing() {
   // No packing
   manifold.send_with_options(
     pid,
-    subject,
+    tag,
     data,
     [manifold.PackModeOption(manifold.NoPacking)]
   )
@@ -106,7 +106,7 @@ pub fn send_with_offload() {
   // Offload mode - non-blocking, routes through sender processes
   manifold.send_multi_with_options(
     pids,
-    subject,
+    tag,
     message,
     [manifold.SendModeOption(manifold.Offload)]
   )
@@ -114,7 +114,7 @@ pub fn send_with_offload() {
   // Direct mode (default) - sends directly
   manifold.send_multi_with_options(
     pids,
-    subject,
+    tag,
     message,
     [manifold.SendModeOption(manifold.Direct)]
   )
@@ -132,7 +132,7 @@ pub fn optimized_broadcast(pids: List(process.Pid), message: String) {
   // Use binary packing with offload mode for optimal performance
   manifold.send_multi_with_options(
     pids,
-    subject,
+    tag,
     message,
     [
       manifold.PackModeOption(manifold.Binary),
