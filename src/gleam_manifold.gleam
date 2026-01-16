@@ -44,11 +44,7 @@ pub fn new_tag() -> Tag(message) {
   Tag(reference.new())
 }
 
-pub fn send(
-  pid: process.Pid,
-  tag: Tag(message),
-  message: message,
-) -> Nil {
+pub fn send(pid: process.Pid, tag: Tag(message), message: message) -> Nil {
   manifold_send(pid, #(tag.ref, message))
   Nil
 }
