@@ -12,25 +12,25 @@ Add to your `gleam.toml` as a git dependency:
 
 ```toml
 [dependencies]
-gleam_manifold = { git = "git@github.com:otters/gleam_manifold.git", ref = "<commit hash>" }
+gleam_manifold = { git = "git@github.com:alii/gleam_manifold.git", ref = "<commit hash>" }
 ```
 
 ## Usage
 
-### Creating and using Subjects
+### Creating and using Tags
 
-This library provides its own Subject type for type-safe message passing:
+This library provides its own Tag type for type-safe message passing:
 
 ```gleam
 import gleam/erlang/process
 import gleam_manifold as manifold
 
 pub fn example() {
-  let subject = manifold.new_subject()
+  let tag = manifold.new_tag()
   let pid = process.self()
 
   // Send a message through Manifold
-  manifold.send(pid, subject, "Hello world")
+  manifold.send(pid, tag, "Hello world")
 
   // Receive the message
   let assert Ok(message) = manifold.receive(subject, 1000)
@@ -46,8 +46,8 @@ import gleam/erlang/process
 import gleam_manifold as manifold
 
 pub fn broadcast(pids: List(process.Pid), message: String) {
-  let subject = manifold.new_subject()
-  manifold.send_multi(pids, subject, message)
+  let tag = manifold.new_tag()
+  manifold.send_multi(pids, tag, message)
 }
 ```
 
@@ -63,7 +63,7 @@ Control how messages are serialized before sending:
 import gleam_manifold as manifold
 
 pub fn send_with_packing() {
-  let subject = manifold.new_subject()
+  let tag = manifold.new_tag()
   let pid = process.self()
 
   // Binary packing - efficient for large messages sent to many processes
@@ -100,7 +100,7 @@ Control how messages are delivered:
 import gleam_manifold as manifold
 
 pub fn send_with_offload() {
-  let subject = manifold.new_subject()
+  let tag = manifold.new_tag()
   let pids = get_many_pids()
 
   // Offload mode - non-blocking, routes through sender processes
@@ -127,7 +127,7 @@ You can combine multiple options for fine-tuned control:
 
 ```gleam
 pub fn optimized_broadcast(pids: List(process.Pid), message: String) {
-  let subject = manifold.new_subject()
+  let tag = manifold.new_tag()
 
   // Use binary packing with offload mode for optimal performance
   manifold.send_multi_with_options(
@@ -157,7 +157,7 @@ pub fn with_custom_routing() {
   manifold.set_sender_key("channel_456")
 
   // Messages will be routed based on these keys
-  manifold.send(pid, subject, message)
+  manifold.send(pid, tag, message)
 }
 ```
 

@@ -7,14 +7,14 @@ pub fn main() -> Nil {
 }
 
 pub fn simple_test() {
-  let subject = manifold.new_subject()
+  let subject = manifold.new_tag()
   let pid = process.self()
   process.spawn(fn() { manifold.send(pid, subject, "Hello world") })
   assert manifold.receive(subject, 100) == Ok("Hello world")
 }
 
 pub fn many_pids_test() {
-  let subject = manifold.new_subject()
+  let subject = manifold.new_tag()
   let pid = process.self()
 
   let proc = fn() {
@@ -35,7 +35,7 @@ pub fn many_pids_test() {
 }
 
 pub fn multi_pids_test() {
-  let subject = manifold.new_subject()
+  let subject = manifold.new_tag()
   let pid = process.self()
 
   let proc = fn() {
@@ -55,7 +55,7 @@ pub fn multi_pids_test() {
 }
 
 pub fn send_with_options_test() {
-  let subject = manifold.new_subject()
+  let subject = manifold.new_tag()
   let pid = process.self()
 
   process.spawn(fn() {
@@ -89,7 +89,7 @@ pub fn send_with_options_test() {
 }
 
 pub fn send_multi_with_options_test() {
-  let subject = manifold.new_subject()
+  let subject = manifold.new_tag()
   let pid = process.self()
 
   let proc = fn() {
@@ -113,7 +113,7 @@ pub fn send_multi_with_options_test() {
 pub fn partitioner_key_test() {
   manifold.set_partitioner_key("test_key")
 
-  let subject = manifold.new_subject()
+  let subject = manifold.new_tag()
   let pid = process.self()
 
   process.spawn(fn() { manifold.send(pid, subject, "After partitioner key") })
@@ -123,7 +123,7 @@ pub fn partitioner_key_test() {
 pub fn sender_key_test() {
   manifold.set_sender_key("test_sender_key")
 
-  let subject = manifold.new_subject()
+  let subject = manifold.new_tag()
   let pid = process.self()
 
   process.spawn(fn() { manifold.send(pid, subject, "After sender key") })
