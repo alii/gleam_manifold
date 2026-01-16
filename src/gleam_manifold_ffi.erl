@@ -1,12 +1,12 @@
 -module(gleam_manifold_ffi).
 -export(['receive'/1, 'receive'/2, create_atom/1, dynamic_atom/1, dynamic_nil/0]).
 
-'receive'({subject, Ref}) ->
+'receive'({tag, Ref}) ->
     receive
         {Ref, Message} -> Message
     end.
 
-'receive'({subject, Ref}, Timeout) ->
+'receive'({tag, Ref}, Timeout) ->
     receive
         {Ref, Message} -> {ok, Message}
     after Timeout ->

@@ -2,18 +2,13 @@
 ////
 //// More information about Manifold can be found on its
 //// [GitHub page](https://github.com/discord/manifold).
-////
-//// Unlike Gleam's erlang module, Subjects in gleam_manifold
-//// are not bound to a specific process. They're merely a unique
-//// tag which provides runtime guarantees about type-safe
-//// message delivery.
 
 import gleam/erlang/process
 import gleam/erlang/reference
 import gleam/list
 
-pub opaque type Subject(message) {
-  Subject(tag: reference.Reference)
+pub opaque type Tag(message) {
+  Tag(ref: reference.Reference)
 }
 
 type Message(message) =
@@ -43,57 +38,53 @@ pub type ManifoldOption {
   SendModeOption(SendMode)
 }
 
-/// Create a new Manifold subject for sending and receiving messages
+/// Create a new Manifold tag for sending and receiving messages
 /// of the specified type.
-pub fn new_subject() -> Subject(message) {
-  Subject(reference.new())
+pub fn new_tag() -> Tag(message) {
+  Tag(reference.new())
 }
 
-pub fn send(
-  pid: process.Pid,
-  subject: Subject(message),
-  message: message,
-) -> Nil {
-  manifold_send(pid, #(subject.tag, message))
+pub fn send(pid: process.Pid, tag: Tag(message), message: message) -> Nil {
+  manifold_send(pid, #(tag.ref, message))
   Nil
 }
 
 pub fn send_with_options(
   pid: process.Pid,
-  subject: Subject(message),
+  tag: Tag(message),
   message: message,
   options: List(ManifoldOption),
 ) -> Nil {
   let opts = options_to_keyword_list(options)
-  manifold_send_with_options(pid, #(subject.tag, message), opts)
+  manifold_send_with_options(pid, #(tag.ref, message), opts)
   Nil
 }
 
 pub fn send_multi(
   pids: List(process.Pid),
-  subject: Subject(message),
+  tag: Tag(message),
   message: message,
 ) -> Nil {
-  manifold_send_multi(pids, #(subject.tag, message))
+  manifold_send_multi(pids, #(tag.ref, message))
   Nil
 }
 
 pub fn send_multi_with_options(
   pids: List(process.Pid),
-  subject: Subject(message),
+  tag: Tag(message),
   message: message,
   options: List(ManifoldOption),
 ) -> Nil {
   let opts = options_to_keyword_list(options)
-  manifold_send_multi_with_options(pids, #(subject.tag, message), opts)
+  manifold_send_multi_with_options(pids, #(tag.ref, message), opts)
   Nil
 }
 
 @external(erlang, "gleam_manifold_ffi", "receive")
-pub fn receive(subject: Subject(message), timeout: Int) -> Result(message, Nil)
+pub fn receive(tag: Tag(message), timeout: Int) -> Result(message, Nil)
 
 @external(erlang, "gleam_manifold_ffi", "receive")
-pub fn receive_forever(subject: Subject(message)) -> message
+pub fn receive_forever(tag: Tag(message)) -> message
 
 /// Set a custom partitioner key for the current process.
 /// This controls which partitioner process will handle your messages,
