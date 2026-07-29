@@ -101,7 +101,9 @@ pub fn set_sender_key(key: String) -> Nil {
   Nil
 }
 
-fn options_to_keyword_list(options: List(ManifoldOption)) -> List(#(Atom, Term)) {
+fn options_to_keyword_list(
+  options: List(ManifoldOption),
+) -> List(#(Atom, Term)) {
   list.map(options, fn(opt) {
     case opt {
       PackModeOption(Binary) -> #(
