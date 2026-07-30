@@ -1,14 +1,8 @@
 # gleam_manifold
 
-Gleam bindings to [Manifold](https://github.com/discord/manifold) - an Elixir library for fast message passing between BEAM nodes.
+Gleam bindings to [Manifold](https://github.com/discord/manifold), Discord's Elixir library for sending one message to many processes quickly. Instead of sending to each process in turn, Manifold dispatches to one partitioner per node and fans out from there.
 
-## What is Manifold?
-
-Manifold is an Elixir library developed by Discord that optimizes sending the same message to many processes. Instead of sending messages sequentially (which can be slow with thousands of processes), Manifold uses a divide-and-conquer approach that distributes the work across multiple sender processes, achieving much better performance at scale.
-
-## Installation
-
-Add to your `gleam.toml` as a git dependency:
+## Install
 
 ```toml
 [dependencies]
@@ -17,164 +11,121 @@ gleam_manifold = { git = "git@github.com:alii/gleam_manifold.git", ref = "<commi
 
 ## Usage
 
-### Creating and using Tags
+A `Channel` is a typed address. Unlike a `process.Subject` it has no owner, so any number of processes can receive from it and `broadcast` reaches all of them in one call.
 
-This library provides its own Tag type for type-safe message passing:
+Create a channel once and share it with everything that uses it. Manifold delivers to pids, so keeping the list of processes you want to reach is up to you.
 
-```gleam
-import gleam/erlang/process
-import gleam_manifold as manifold
-
-pub fn example() {
-  let tag = manifold.new_tag()
-  let pid = process.self()
-
-  // Send a message through Manifold
-  manifold.send(pid, tag, "Hello world")
-
-  // Receive the message
-  let assert Ok(message) = manifold.receive(tag, 1000)
-}
-```
-
-### Multicasting to multiple PIDs
-
-Send the same message to multiple processes at once:
+A channel goes into a `process.Selector`, so an actor can handle broadcasts alongside its own messages:
 
 ```gleam
 import gleam/erlang/process
+import gleam/io
+import gleam/otp/actor
 import gleam_manifold as manifold
 
-pub fn broadcast(pids: List(process.Pid), message: String) {
-  let tag = manifold.new_tag()
-  manifold.send_multi(pids, tag, message)
+type Message {
+  Broadcast(String)
+  Shutdown
+}
+
+fn start(channel: manifold.Channel(String)) {
+  actor.new_with_initialiser(1000, fn(subject) {
+    // A custom selector replaces the default one, so add the actor's own
+    // subject to it as well as the channel.
+    let selector =
+      process.new_selector()
+      |> process.select(subject)
+      |> manifold.select_map(channel, Broadcast)
+
+    actor.initialised(Nil)
+    |> actor.selecting(selector)
+    |> actor.returning(subject)
+    |> Ok
+  })
+  |> actor.on_message(fn(state, message) {
+    case message {
+      Broadcast(text) -> {
+        io.println(text)
+        actor.continue(state)
+      }
+      Shutdown -> actor.stop()
+    }
+  })
+  |> actor.start
+}
+
+pub fn main() {
+  let channel = manifold.new_channel()
+
+  let assert Ok(a) = start(channel)
+  let assert Ok(b) = start(channel)
+
+  // One call, both actors.
+  manifold.broadcast(channel, to: [a.pid, b.pid], message: "hello")
 }
 ```
 
-### Advanced Options
+Use `send` to reach one process and `broadcast` for many. Sends are asynchronous: Manifold hands the message to a partitioner process, so it arrives shortly after the call returns rather than during it.
 
-The library supports the same options as the Elixir Manifold library for tuning performance:
+For a process that is not an actor, `manifold.receive` and `manifold.receive_forever` read from a channel directly.
 
-#### Pack Modes
+## Options
 
-Control how messages are serialized before sending:
+Options live on the channel.
 
 ```gleam
-import gleam_manifold as manifold
-
-pub fn send_with_packing() {
-  let tag = manifold.new_tag()
-  let pid = process.self()
-
-  // Binary packing - efficient for large messages sent to many processes
-  manifold.send_with_options(
-    pid,
-    tag,
-    large_data,
-    [manifold.PackModeOption(manifold.Binary)]
-  )
-
-  // ETF (Erlang Term Format) - default behavior
-  manifold.send_with_options(
-    pid,
-    tag,
-    data,
-    [manifold.PackModeOption(manifold.Etf)]
-  )
-
-  // No packing
-  manifold.send_with_options(
-    pid,
-    tag,
-    data,
-    [manifold.PackModeOption(manifold.NoPacking)]
-  )
-}
+let channel =
+  manifold.new_channel()
+  |> manifold.pack(manifold.Binary)
+  |> manifold.send_mode(manifold.Offload)
 ```
 
-#### Send Modes
+`Binary` serialises the message once with `term_to_binary` rather than once per receiving node, which pays off for large messages going to many nodes. `Etf` is the default and does no packing. Packing is ignored when sending to a single process.
 
-Control how messages are delivered:
+`Offload` hands the message to a sender process so sending never blocks the caller. `Direct` is the default.
+
+`pack` and `send_mode` return a copy sharing the channel's reference, so the same processes still receive it. That makes a one-off override safe:
 
 ```gleam
-import gleam_manifold as manifold
-
-pub fn send_with_offload() {
-  let tag = manifold.new_tag()
-  let pids = get_many_pids()
-
-  // Offload mode - non-blocking, routes through sender processes
-  manifold.send_multi_with_options(
-    pids,
-    tag,
-    message,
-    [manifold.SendModeOption(manifold.Offload)]
-  )
-
-  // Direct mode (default) - sends directly
-  manifold.send_multi_with_options(
-    pids,
-    tag,
-    message,
-    [manifold.SendModeOption(manifold.Direct)]
-  )
-}
+let unpacked = channel |> manifold.pack(manifold.Etf)
+manifold.broadcast(unpacked, to: workers, message: "small")
 ```
 
-#### Combining Options
+## Selectors
 
-You can combine multiple options for fine-tuned control:
+`select_map` converts a channel's messages into your selector's type, as above. `select` adds a channel whose messages already are that type, and `manifold.selector(channel)` builds a selector for one channel on its own.
+
+Build selectors outside your receive loop, as each call allocates. There is no `deselect`, since `gleam_erlang` has no record based equivalent; rebuild the selector without the channel instead.
+
+## Routing
+
+`set_partitioner_key` and `set_sender_key` pin the calling process to a partitioner or sender. Two processes sharing a key share a partitioner, so their messages to a given node stay ordered relative to one another. Both apply to every subsequent send from that process.
 
 ```gleam
-pub fn optimized_broadcast(pids: List(process.Pid), message: String) {
-  let tag = manifold.new_tag()
-
-  // Use binary packing with offload mode for optimal performance
-  manifold.send_multi_with_options(
-    pids,
-    tag,
-    message,
-    [
-      manifold.PackModeOption(manifold.Binary),
-      manifold.SendModeOption(manifold.Offload)
-    ]
-  )
-}
+manifold.set_partitioner_key("user_123")
 ```
 
-### Partitioner and Sender Keys
+## Migrating from 1.x
 
-Control load distribution across Manifold's internal processes:
+| 1.x                          | 2.x                                          |
+| ---------------------------- | -------------------------------------------- |
+| `new_tag()`                  | `new_channel()`                              |
+| `send(pid, tag, msg)`        | `send(channel, to: pid, message: msg)`       |
+| `send_multi(pids, tag, msg)` | `broadcast(channel, to: pids, message: msg)` |
+| `send_with_options(...)`     | options go on the channel                    |
+| `[PackModeOption(Binary)]`   | `channel \|> pack(Binary)`                   |
+| `NoPacking`                  | `Etf`                                        |
 
-```gleam
-import gleam_manifold as manifold
+`NoPacking` is gone because Manifold passes anything that is not `:binary` through unchanged, making it identical to `Etf`. `selector`, `select` and `select_map` are new.
 
-pub fn with_custom_routing() {
-  // Set a custom partitioner key for consistent routing
-  manifold.set_partitioner_key("user_123")
+## Why not `process.Subject`?
 
-  // Set a custom sender key for offloaded messages
-  manifold.set_sender_key("channel_456")
+A subject has one owner and a tag unique to it, with no way to read that tag back out. Manifold needs many processes sharing a tag, and needs the tag itself to build the term it sends, so a subject can express neither half.
 
-  // Messages will be routed based on these keys
-  manifold.send(pid, tag, message)
-}
-```
-
-This is useful for:
-
-- Ensuring message ordering for specific entities
-- Load balancing across partitioner processes
-- Preventing hot spots in message distribution
+`gleam_erlang` has `unsafely_create_subject`, which would work, but it is internal and the contract for what a tag means lives there rather than here. It also hands back something with an owner, which a channel does not have, so `process.send` would compile against it and quietly turn a broadcast into a send to one process.
 
 ## Testing
 
-Run the tests with:
-
-```bash
+```sh
 gleam test
 ```
-
-## License
-
-See the LICENSE file in the repository.

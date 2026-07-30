@@ -1,5 +1,5 @@
 name = "gleam_manifold"
-version = "1.0.0"
+version = "2.0.0"
 
 description = "Gleam bindings to github.com/discord/manifold"
 licences = ["MIT"]
@@ -13,3 +13,4 @@ manifold = ">= 1.6.0 and < 2.0.0"
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
+gleam_otp = ">= 1.0.0 and < 2.0.0"

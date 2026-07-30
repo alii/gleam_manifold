@@ -1,23 +1,49 @@
 -module(gleam_manifold_ffi).
--export(['receive'/1, 'receive'/2, create_atom/1, dynamic_atom/1, dynamic_nil/0]).
+-export([
+    'receive'/1,
+    'receive'/2,
+    apply_to_payload/2,
+    default_options/0,
+    binary_options/0,
+    offload_options/0,
+    binary_offload_options/0
+]).
 
-'receive'({tag, Ref}) ->
+'receive'(Reference) ->
     receive
-        {Ref, Message} -> Message
+        {Reference, Message} -> Message
     end.
 
-'receive'({tag, Ref}, Timeout) ->
+'receive'(Reference, Timeout) ->
     receive
-        {Ref, Message} -> {ok, Message}
+        {Reference, Message} -> {ok, Message}
     after Timeout ->
         {error, nil}
     end.
 
-create_atom(Binary) when is_binary(Binary) ->
-    binary_to_atom(Binary, utf8).
+%% Called by the selector with the whole envelope. Matching `{_, Payload}` here
+%% means a message of the wrong shape crashes at this boundary rather than being
+%% handed onwards as a value of a type it does not have.
+apply_to_payload(Transform, {_Reference, Payload}) ->
+    Transform(Payload).
 
-dynamic_atom(Atom) when is_atom(Atom) ->
-    Atom.
+%% Manifold's send options.
+%%
+%% These are written as literals so the compiler places them in the module's
+%% constant pool, making them free to return. Building the same lists in Gleam
+%% would call binary_to_atom for every atom, every time a channel is built.
+%%
+%% Manifold reads these with Keyword.get and treats a missing key as the
+%% default, so each default is expressed by leaving its key out entirely. Doing
+%% otherwise would fail Manifold's own valid_send_options?/1.
+default_options() ->
+    [].
 
-dynamic_nil() ->
-    nil.
+binary_options() ->
+    [{pack_mode, binary}].
+
+offload_options() ->
+    [{send_mode, offload}].
+
+binary_offload_options() ->
+    [{pack_mode, binary}, {send_mode, offload}].
